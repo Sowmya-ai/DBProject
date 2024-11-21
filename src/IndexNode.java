@@ -1,16 +1,16 @@
 import java.util.List;
 
 public class IndexNode{
-    public TableAttribute indexValue; //index  value of row
-    public List<Integer> rowids; // row IDS
+    public TableAttribute indValue; //index  value of row
+    public List<Integer> rowId; // row IDS
     public boolean isInteriorNode; // is the node interior
-    public int leftPageNo; // left page no of node
+    public int leftPgNo; // left page no of node
 
     // parameterized constructor of index node
-    public IndexNode(TableAttribute indexVal,List<Integer> rowIds)
+    public IndexNode(TableAttribute indVal,List<Integer> rIds)
     {
-        this.indexValue = indexVal;
-        this.rowids = rowIds;
+        this.indValue = indVal;
+        this.rowId = rIds;
     }
 
 }
