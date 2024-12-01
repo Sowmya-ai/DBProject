@@ -1,3 +1,4 @@
+
 import static java.lang.System.out;
 
 import java.io.File;
@@ -6,6 +7,7 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Scanner;
 
@@ -81,51 +83,50 @@ public class Commands {
     }
     public static void parseString(String queryStr) {
         String table_name = "";
-        List<String> column_names = new ArrayList<String>();
-
-        // Get table and column names for the select
-        ArrayList<String> queryTableTokens = new ArrayList<String>(Arrays.asList(queryStr.split(" ")));
+        List<String> column_names = new ArrayList<>();
+    
+        // Split the query into tokens
+        ArrayList<String> queryTokens = new ArrayList<>(Arrays.asList(queryStr.split(" ")));
         int i = 0;
-
-        for (i = 1; i < queryTableTokens.size(); i++) {
-            if (queryTableTokens.get(i).equals("from")) {
+    
+        // Parse table name and columns
+        for (i = 1; i < queryTokens.size(); i++) {
+            if (queryTokens.get(i).equalsIgnoreCase("from")) {
                 ++i;
-                table_name = queryTableTokens.get(i);
+                table_name = queryTokens.get(i);
                 break;
             }
-            if (!queryTableTokens.get(i).equals("*") && !queryTableTokens.get(i).equals(",")) {
-                if (queryTableTokens.get(i).contains(",")) {
-                    ArrayList<String> colList = new ArrayList<String>(
-                            Arrays.asList(queryTableTokens.get(i).split(",")));
-                    for (String col : colList) {
-                        column_names.add(col.trim());
-                    }
-                } else
-                    column_names.add(queryTableTokens.get(i));
+            if (!queryTokens.get(i).equals("*") && !queryTokens.get(i).equals(",")) {
+                if (queryTokens.get(i).contains(",")) {
+                    column_names.addAll(Arrays.asList(queryTokens.get(i).split(",")));
+                } else {
+                    column_names.add(queryTokens.get(i));
+                }
             }
         }
-
+    
+        // Load table metadata
         MetaData tableMetaData = new MetaData(table_name);
-        if(!tableMetaData.tableExists){
+        if (!tableMetaData.tableExists) {
             System.out.println("! Table does not exist");
             return;
         }
-
+    
         SpecialCondition condition = null;
         try {
-
-            condition = getConditionFromQuery(tableMetaData, queryStr);
-
+            // Extract condition using the updated method
+            condition = getComplexConditionFromQuery(tableMetaData, queryStr);
         } catch (Exception e) {
             System.out.println(e.getMessage());
             return;
         }
-
-        if (column_names.size() == 0) {
+    
+        // If no specific columns are mentioned, select all
+        if (column_names.isEmpty()) {
             column_names = tableMetaData.columnNames;
         }
+    
         try {
-
             RandomAccessFile tableFile = new RandomAccessFile(TableUtils.getTablePath(table_name), "r");
             DavisBaseBinaryFile tableBinaryFile = new DavisBaseBinaryFile(tableFile);
             tableBinaryFile.selectRecords(tableMetaData, column_names, condition);
@@ -133,9 +134,88 @@ public class Commands {
         } catch (IOException exception) {
             System.out.println("! Error selecting columns from table");
         }
-
+    }
+    private static SpecialCondition getComplexConditionFromQuery(MetaData tableMetaData, String query) throws Exception {
+        if (!query.contains("where")) {
+            return null; // No conditions
     }
 
+String whereClause = query.substring(query.indexOf("where") + 6).trim();
+
+        ArrayList<String> tokens = new ArrayList<>(Arrays.asList(whereClause.split("\\s+")));
+    
+        return parseConditionTree(tableMetaData, tokens);
+    }
+    
+    // Parses a condition tree from tokens
+    private static SpecialCondition parseConditionTree(MetaData tableMetaData, ArrayList<String> tokens) throws Exception {
+        SpecialCondition currentCondition = null;
+        SpecialCondition.LogicalOperator logicalOperator = SpecialCondition.LogicalOperator.NONE;
+        boolean negate = false;
+        for (int i = 0; i < tokens.size(); i++) {
+
+            String token = tokens.get(i);
+            if (token.equalsIgnoreCase("not")) {
+                // Toggle negation for the next condition
+                negate = true;
+            }
+            else if (token.equalsIgnoreCase("and") || token.equalsIgnoreCase("or")) {
+                logicalOperator = token.equalsIgnoreCase("and")
+                        ? SpecialCondition.LogicalOperator.AND
+                        : SpecialCondition.LogicalOperator.OR;
+            } else if (SpecialCondition.supportedOperators.length > 0 && containsOperator(token)) {
+                // Extract individual condition
+                String column = tokens.get(i-1);
+                String operator = extractOperator(token);
+                String value = tokens.get(i+1).replace("'", "").replace("\"", "");
+                int columnIndex = tableMetaData.columnNames.indexOf(column);
+                SpecialCondition condition = new SpecialCondition(tableMetaData.columnNameAttrs.get(columnIndex).dataType);
+                condition.setColumName(column);
+                condition.setColumnOrdinal(columnIndex);
+                condition.setOp(operator);
+                condition.setConditionValue(value);
+                if (negate) {
+                    condition.setNegation(true); // Apply negation
+                    negate = false; // Reset negation flag after applying
+                }
+    
+                if (!tableMetaData.columnExists(new ArrayList<>(Collections.singletonList(column)))) {
+                    throw new Exception("! Invalid Table/Column : " + tableMetaData.tableName + " . " + column);
+                }
+    
+                if (currentCondition == null) {
+                    currentCondition = condition;
+                } else {
+                    // Combine with previous condition
+                    currentCondition = new SpecialCondition(logicalOperator, currentCondition, condition);
+                }
+    
+                i++; // Skip the value token
+            }
+        }
+    
+        return currentCondition;
+    }
+    
+    // Utility to check if a token contains an operator
+    private static boolean containsOperator(String token) {
+        for (String op : SpecialCondition.supportedOperators) {
+            if (token.contains(op)) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    // Extracts the operator from a token
+    private static String extractOperator(String token) {
+        for (String op : SpecialCondition.supportedOperators) {
+            if (token.contains(op)) {
+                return op;
+            }
+        }
+        return "";
+    }
     public static void parseCreateIdx(String createIdxStr) 
     {
         ArrayList<String> createIndexTokens = new ArrayList<>(Arrays.asList(createIdxStr.split(" ")));
