@@ -1,3 +1,4 @@
+
 import java.io.RandomAccessFile;
 import java.io.File;
 import java.io.IOException;
@@ -254,69 +255,104 @@ public class DavisBaseBinaryFile {
     * @param condition
     * @throws IOException
     */
-   public void selectRecords(MetaData tablemetaData, List<String> columNames, SpecialCondition condition) throws IOException{
-
-      //The select order might be different from the table ordinal position
-      List<Integer> ordinalPostions = tablemetaData.getOrdinalPostions(columNames);
-      System.out.println();
+      public void selectRecords(MetaData tableMetaData, List<String> columnNames, SpecialCondition condition) throws IOException {
+  
+      // The select order might be different from the table ordinal position
+      List<Integer> ordinalPositions = tableMetaData.getOrdinalPostions(columnNames);
+  
       List<Integer> printPosition = new ArrayList<>();
-
       int columnPrintLength = 0;
       printPosition.add(columnPrintLength);
-      int totalTablePrintLength =0;
-      if(showRowId)
-      {
-         System.out.print("rowid");
-         System.out.print(TableUtils.printSeparator(" ",5));
-         printPosition.add(10);
-         totalTablePrintLength +=10;
+      int totalTablePrintLength = 0;
+  
+      if (showRowId) {
+          //System.out.println("[DEBUG] Row ID column is included.");
+          System.out.print("rowid");
+          System.out.print(TableUtils.printSeparator(" ", 5));
+          printPosition.add(10);
+          totalTablePrintLength += 10;
       }
-
-
-      for(int i:ordinalPostions)
-      {
-         String columnName = tablemetaData.columnNameAttrs.get(i).columnName;
-         columnPrintLength = Math.max(columnName.length()
-                 ,tablemetaData.columnNameAttrs.get(i).dataType.getPrintOffset()) + 5;
-         printPosition.add(columnPrintLength);
-         System.out.print(columnName);
-         System.out.print(TableUtils.printSeparator(" ",columnPrintLength - columnName.length() ));
-         totalTablePrintLength +=columnPrintLength;
-      }
-      System.out.println();
-      System.out.println(TableUtils.printSeparator("-",totalTablePrintLength));
-
-      BPlusOneTree bPlusOneTree = new BPlusOneTree(file, tablemetaData.rootPageNo,tablemetaData.tableName);
-
-      String currentValue ="";
-      for(Integer pageNo : bPlusOneTree.getAllLeaves(condition))
-      {
-         Page page = new Page(file,pageNo);
-         for(TableRecord record : page.getPageRecords())
-         {
-            if(condition!=null)
-            {
-               if(!condition.chkCondt(record.getAttributes().get(condition.columnOrdinal).fieldValue))
-                  continue;
-            }
-            int columnCount = 0;
-            if(showRowId)
-            {
-               currentValue = Integer.valueOf(record.rowId).toString();
-               System.out.print(currentValue);
-               System.out.print(TableUtils.printSeparator(" ",printPosition.get(++columnCount) - currentValue.length()));
-            }
-            for(int i :ordinalPostions)
-            {
-               currentValue = record.getAttributes().get(i).fieldValue;
-               System.out.print(currentValue);
-               System.out.print(TableUtils.printSeparator(" ",printPosition.get(++columnCount) - currentValue.length()));
-            }
-            System.out.println();
-         }
+  
+      for (int i : ordinalPositions) {
+          String columnName = tableMetaData.columnNameAttrs.get(i).columnName;
+          columnPrintLength = Math.max(
+              columnName.length(),
+              tableMetaData.columnNameAttrs.get(i).dataType.getPrintOffset()
+          ) + 5;
+          printPosition.add(columnPrintLength);
+          System.out.print(columnName);
+          System.out.print(TableUtils.printSeparator(" ", columnPrintLength - columnName.length()));
+          totalTablePrintLength += columnPrintLength;
+  
+          //System.out.println("[DEBUG] Column: " + columnName + ", Print Length: " + columnPrintLength);
       }
       System.out.println();
+      System.out.println(TableUtils.printSeparator("-", totalTablePrintLength));
+      //System.out.println("[DEBUG] Table header printed.");
+  
+      BPlusOneTree bPlusOneTree = new BPlusOneTree(file, tableMetaData.rootPageNo, tableMetaData.tableName);
+      //System.out.println("[DEBUG] BPlusOneTree initialized.");
+  
+      String currentValue = "";
+      for (Integer pageNo : bPlusOneTree.getAllLeaves(condition)) {
+          //System.out.println("[DEBUG] Processing page number: " + pageNo);
+  
+          Page page = new Page(file, pageNo);
+          for (TableRecord record : page.getPageRecords()) {
+              //System.out.println("[DEBUG] Checking record with Row ID: " + record.rowId);
+  
+              if (condition != null) {
+                  boolean matchesCondition = evaluateConditionTree(condition, record);
+                  //System.out.println("[DEBUG] Record matches condition: " + matchesCondition);
+                  if (!matchesCondition) {
+                      continue;
+                  }
+              }
+  
+              int columnCount = 0;
+              if (showRowId) {
+                  currentValue = Integer.valueOf(record.rowId).toString();
+                  System.out.print(currentValue);
+                  System.out.print(TableUtils.printSeparator(" ", printPosition.get(++columnCount) - currentValue.length()));
+                  //System.out.println("[DEBUG] Printed Row ID: " + currentValue);
+              }
+  
+              for (int i : ordinalPositions) {
+                  currentValue = record.getAttributes().get(i).fieldValue;
+                  System.out.print(currentValue);
+                  System.out.print(TableUtils.printSeparator(" ", printPosition.get(++columnCount) - currentValue.length()));
+                  //System.out.println("[DEBUG] Printed Column Value: " + currentValue + " for Column Index: " + i);
+              }
+              //System.out.println("[DEBUG] Finished printing record with Row ID: " + record.rowId);
+              System.out.println();
+          }
+      }
+      //System.out.println("[DEBUG] Finished processing all records.");
+      System.out.println();
+  }
+
+private boolean evaluateConditionTree(SpecialCondition condition, TableRecord record) {
+   if (!condition.isCompound) {
+       // Evaluate a simple condition
+       String currentValue = record.getAttributes().get(condition.columnOrdinal).fieldValue;
+       return condition.chkCondt(currentValue);
    }
+
+   // Evaluate compound condition recursively
+   boolean leftResult = evaluateConditionTree(condition.leftCondition, record);
+   boolean rightResult = evaluateConditionTree(condition.rightCondition, record);
+
+   if (condition.logicalOperator == SpecialCondition.LogicalOperator.AND) {
+       return leftResult && rightResult;
+   } else if (condition.logicalOperator == SpecialCondition.LogicalOperator.OR) {
+       return leftResult || rightResult;
+   }
+
+   return false; // Default for unrecognized logical operator
+}
+
+
+  
 }
 
 
