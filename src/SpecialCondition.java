@@ -1,177 +1,173 @@
 
 /* SpecialCondition class 
 
-This class handles logic for where clause and checks the conditions */
-public class SpecialCondition {
-    String colHeader; //Name of the columns
-    private OperatorType op; //Type of the operator (<, >, =, etc.)
-    String compVal; // comparison values
-    boolean neg; //Negation
-    public int columnOrdinal; 
-    public DataTypes dt ; //data types
+This class handles logic for WHERE clause and checks the conditions */
+import java.util.Objects;
 
-    //Initialize the SpecialCondition constructors with the data Type 
-    public SpecialCondition(DataTypes dataType) {
-        this.dt = dataType;
+public class SpecialCondition {
+
+    // Enum for logical operators
+    public enum LogicalOperator { AND, OR, NONE }
+
+    // Enum for operator types
+    public enum OperatorType {
+        GREATERTHAN, LESSTHAN, EQUALTO, GREATERTHANOREQUAL,
+        LESSTHANOREQUAL, NOTEQUAL, INVALID
     }
 
-    //List of operators  
+    // Simple condition fields
+    String columnName; // Name of the column
+    private OperatorType operator; // Operator type: greater than, less than, equal to, etc.
+    String comparisonValue; 
+    boolean negation; 
+    public int columnOrdinal; 
+    public DataTypes dataType;
+
+    // Compound condition fields
+    public boolean isCompound = false; // Flag to indicate compound condition
+    public LogicalOperator logicalOperator = LogicalOperator.NONE; // Logical operator for compound conditions
+    public SpecialCondition leftCondition; // Left condition for compound
+    public SpecialCondition rightCondition; // Right condition for compound
+
+    // Supported operators for comparisons
     public static String[] supportedOperators = { "<=", ">=", "<>", ">", "<", "=" };
 
-    // Converts User inputted operator to OperatorType operator
-    public static OperatorType getOpType(String stringOp) {
-        if (stringOp.equals(">")) {
-            return OperatorType.GREATERTHAN;
-        } else if (stringOp.equals("<")) {
-            return OperatorType.LESSTHAN;
-        } else if (stringOp.equals("=")) {
-            return OperatorType.EQUALTO;
-        } else if (stringOp.equals(">=")) {
-            return OperatorType.GREATERTHANOREQUAL;
-        } else if (stringOp.equals("<=")) {
-            return OperatorType.LESSTHANOREQUAL;
-        } else if (stringOp.equals("<>")) {
-            return OperatorType.NOTEQUAL;
-        } else {
-            System.out.println("! Operator \"" + stringOp + "\" is not supported.");
-            return OperatorType.INVALID;
-        }
+    // Constructor for simple condition
+    public SpecialCondition(DataTypes dataType) {
+        this.dataType = dataType;
     }
 
-    //Compare functions compares accross the types of the dataType
-    public static int compare(String str1, String str2, DataTypes dataType) {
-        switch(dataType){
-            case TEXT:
-                return str1.compareTo(str2);
-            case NULL:
-                return compareNullVals(str1, str2);
+    // Constructor for compound condition
+    public SpecialCondition(LogicalOperator logicalOperator, SpecialCondition leftCondition, SpecialCondition rightCondition) {
+        this.isCompound = true;
+        this.logicalOperator = logicalOperator;
+        this.leftCondition = leftCondition;
+        this.rightCondition = rightCondition;
+    }
+
+    // Converts operator string to OperatorType
+    public static OperatorType getOpType(String strOp) {
+        switch (strOp) {
+            case ">": return OperatorType.GREATERTHAN;
+            case "<": return OperatorType.LESSTHAN;
+            case "=": return OperatorType.EQUALTO;
+            case ">=": return OperatorType.GREATERTHANOREQUAL;
+            case "<=": return OperatorType.LESSTHANOREQUAL;
+            case "<>": return OperatorType.NOTEQUAL;
             default:
-                return compareNumVals(str1, str2);
+                System.out.println("! Invalid operator \"" + strOp + "\"");
+                return OperatorType.INVALID;
         }
     }
-    
-    // compare null values
-    private static int compareNullVals(String str1, String str2) {
-        if (str1.equals(str2)) {
-            return 0;
-        } else if (str1.equals("null")) {
-            return 1;
+
+    // Compares two values based on their data types
+    public static int compare(String one, String two, DataTypes dataType) {
+        if (dataType == DataTypes.TEXT)
+            return one.toLowerCase().compareTo(two);
+        else if (dataType == DataTypes.NULL) {
+            if (Objects.equals(one, two)) return 0;
+            else if (one.equalsIgnoreCase("null")) return 1;
+            else return -1;
         } else {
-            return -1;
+            return Long.valueOf(Long.parseLong(one) - Long.parseLong(two)).intValue();
         }
     }
 
-    // compare numeric values
-    private static int compareNumVals(String one, String two) {
-        return Long.valueOf(Long.parseLong(one) - Long.parseLong(two)).intValue();
-    }
-
-    //doOpOnDiff -means do a particular operation on some difference between values 
-    private boolean doOpOnDiff(OperatorType op, int diff)
-    {  
-        if (op == OperatorType.LESSTHANOREQUAL) {
-            return diff <= 0;
-        } else if (op == OperatorType.GREATERTHANOREQUAL) {
-            return diff >= 0;
-        } else if (op == OperatorType.NOTEQUAL) {
-            return diff != 0;
-        } else if (op == OperatorType.LESSTHAN) {
-            return diff < 0;
-        } else if (op == OperatorType.GREATERTHAN) {
-            return diff > 0;
-        } else if (op == OperatorType.EQUALTO) {
-            return diff == 0;
-        } else {
-            return false;
+    // Performs operation on a comparison difference
+    private boolean doOpOnDiff(OperatorType op, int diff) {
+        switch (op) {
+            case LESSTHANOREQUAL: return diff <= 0;
+            case GREATERTHANOREQUAL: return diff >= 0;
+            case NOTEQUAL: return diff != 0;
+            case LESSTHAN: return diff < 0;
+            case GREATERTHAN: return diff > 0;
+            case EQUALTO: return diff == 0;
+            default: return false;
         }
     }
 
-    //doStrCom does a string comparison based on the value and operator provided 
-    private boolean doStrCom(String currentVal, OperatorType op) {
-        return doOpOnDiff(op,currentVal.toLowerCase().compareTo(compVal));
+    // Performs string comparison based on the operator
+    private boolean doStrCom(String currVal, OperatorType op) {
+        return doOpOnDiff(op, currVal.toLowerCase().compareTo(comparisonValue));
     }
 
-    // Does comparison on currentvalue with the comparison value
-    public boolean chkCondt(String currentVal) {
+    // Checks condition on a current value
+    public boolean chkCondt(String currVal) {
+        if (isCompound) {
+            // Evaluate compound condition recursively
+            boolean leftResult = leftCondition.chkCondt(currVal);
+            boolean rightResult = rightCondition.chkCondt(currVal);
+
+            if (logicalOperator == LogicalOperator.AND) {
+                return leftResult && rightResult;
+            } else if (logicalOperator == LogicalOperator.OR) {
+                return leftResult || rightResult;
+            }
+        }
+
         OperatorType operation = getOperation();
+        if (currVal.equalsIgnoreCase("null") || comparisonValue.equalsIgnoreCase("null"))
+            return doOpOnDiff(operation, compare(currVal, comparisonValue, DataTypes.NULL));
 
-        // checks and handles null
-        if (isNull(currentVal) || isNull(compVal)) 
-            return doOpOnDiff(op, compare(currentVal, compVal, DataTypes.NULL));
-
-        if (dt == DataTypes.TEXT || dt == DataTypes.NULL)
-            return doStrCom(currentVal, op);
+        if (dataType == DataTypes.TEXT || dataType == DataTypes.NULL)
+            return doStrCom(currVal, operation);
         else {
-            if(op == OperatorType.LESSTHANOREQUAL) {
-                return Long.parseLong(currentVal) <= Long.parseLong(compVal);
-            } else if (op == OperatorType.GREATERTHANOREQUAL) {
-                return Long.parseLong(currentVal) >= Long.parseLong(compVal);
-            } else if (op == OperatorType.NOTEQUAL) {
-                return Long.parseLong(currentVal) != Long.parseLong(compVal);
-            } else if (op == OperatorType.LESSTHAN){
-                return Long.parseLong(currentVal) < Long.parseLong(compVal);
-            } else if (op == OperatorType.GREATERTHAN) {
-                return Long.parseLong(currentVal) > Long.parseLong(compVal);
-            } else if (op == OperatorType.EQUALTO) {
-                return Long.parseLong(currentVal) == Long.parseLong(compVal);
-            } else {
-                return false;
+            switch (operation) {
+                case LESSTHANOREQUAL: return Long.parseLong(currVal) <= Long.parseLong(comparisonValue);
+                case GREATERTHANOREQUAL: return Long.parseLong(currVal) >= Long.parseLong(comparisonValue);
+                case NOTEQUAL: return Long.parseLong(currVal) != Long.parseLong(comparisonValue);
+                case LESSTHAN: return Long.parseLong(currVal) < Long.parseLong(comparisonValue);
+                case GREATERTHAN: return Long.parseLong(currVal) > Long.parseLong(comparisonValue);
+                case EQUALTO: return Long.parseLong(currVal) == Long.parseLong(comparisonValue);
+                default: return false;
             }
         }
     }
 
-    // Checks if a string is null
-    private boolean isNull(String val){
-        return val == null || val.toLowerCase().equals("null");
+    // Sets the comparison value
+    public void setConditionValue(String conditionValue) {
+        this.comparisonValue = conditionValue.replace("'", "").replace("\"", "");
     }
 
-    //setConditionValue is the setter to set the class variables replacing the filler characters
-    public void setConditionValue(String condVal) {
-        this.compVal = condVal;
-        this.compVal = compVal.replace("'", "");
-        this.compVal = compVal.replace("\"", "");
-    }
-
-    //Setter to set the colHeader
+    // Sets the column name
     public void setColumName(String colName) {
-        this.colHeader = colName;
+        this.columnName = colName;
     }
 
-    //Setter to set the operator 
+    public void setColumnOrdinal(int colOrdinal) {
+        this.columnOrdinal = colOrdinal;
+    }
+
+    // Sets the operator
     public void setOp(String op) {
-        this.op = getOpType(op);
+        this.operator = getOpType(op);
     }
 
-    //Sets the negation to the boolean negation provided
+    // Sets negation
     public void setNegation(boolean negate) {
-        this.neg = negate;
+        this.negation = negate;
     }
 
-    //Getter to get the operation type based on the negation provided
+    // Gets the operation type, considering negation
     public OperatorType getOperation() {
-        if (!neg)
-            return this.op;
+        if (!negation)
+            return this.operator;
         else
             return negateOperator();
     }
 
-    // In case of NOT operator, invert the operator
+    // Inverts the operator for NOT
     private OperatorType negateOperator() {
-        if (this.op == OperatorType.GREATERTHAN) {
-            return OperatorType.LESSTHANOREQUAL;
-        } else if (this.op == OperatorType.LESSTHAN) {
-            return OperatorType.GREATERTHANOREQUAL;
-        } else if (this.op == OperatorType.EQUALTO) {
-            return OperatorType.NOTEQUAL;
-        } else if (this.op == OperatorType.NOTEQUAL) {
-            return OperatorType.EQUALTO;
-        } else if (this.op == OperatorType.GREATERTHANOREQUAL) {
-            return OperatorType.LESSTHAN;
-        } else if (this.op == OperatorType.LESSTHANOREQUAL) {
-            return OperatorType.GREATERTHAN;
-        } else {
-            System.out.println("! Operator \"" + this.op + "\" is invalid");
-            return OperatorType.INVALID;
+        switch (this.operator) {
+            case LESSTHANOREQUAL: return OperatorType.GREATERTHAN;
+            case GREATERTHANOREQUAL: return OperatorType.LESSTHAN;
+            case NOTEQUAL: return OperatorType.EQUALTO;
+            case LESSTHAN: return OperatorType.GREATERTHANOREQUAL;
+            case GREATERTHAN: return OperatorType.LESSTHANOREQUAL;
+            case EQUALTO: return OperatorType.NOTEQUAL;
+            default:
+                System.out.println("! Invalid operator \"" + this.operator + "\"");
+                return OperatorType.INVALID;
         }
     }
 }
