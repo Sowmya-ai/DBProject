@@ -29,7 +29,7 @@ public class DavisBaseBinaryFile {
 
    public boolean recordExists(MetaData tablemetaData, List<String> columNames, SpecialCondition condition) throws IOException{
 
-   BPlusOneTree bPlusOneTree = new BPlusOneTree(file, tablemetaData.rootPageNo, tablemetaData.tableName);
+   BPlusOneTree bPlusOneTree = new BPlusOneTree(file, tablemetaData.rootPgNo, tablemetaData.tabName);
    for(Integer pageNo :  bPlusOneTree.getAllLeaves(condition))
    {
          Page page = new Page(file,pageNo);
@@ -37,7 +37,7 @@ public class DavisBaseBinaryFile {
          {
             if(condition!=null)
             {
-               if(!condition.chkCondt(record.getAttributes().get(condition.columnOrdinal).fieldValue))
+               if(!condition.chkCondt(record.getAttributes().get(condition.columnOrdinal).fldVal))
                   continue;
             }
            return true;
@@ -71,17 +71,17 @@ public class DavisBaseBinaryFile {
 
          try{
                 newValueMap.put(index,
-                      new TableAttribute(tablemetaData.columnNameAttrs.get(index).dataType,strnewValue));
+                      new TableAttribute(tablemetaData.colNameAttrs.get(index).dType,strnewValue));
                       }
                       catch (Exception e) {
-							System.out.println("! Invalid data format for " + tablemetaData.columnNames.get(index) + " values: "
+							System.out.println("! Invalid data format for " + tablemetaData.colNames.get(index) + " values: "
 									+ strnewValue);
 							return count;
 						}
 
          k++;
       }
-      BPlusOneTree bPlusOneTree = new BPlusOneTree(file, tablemetaData.rootPageNo,tablemetaData.tableName);
+      BPlusOneTree bPlusOneTree = new BPlusOneTree(file, tablemetaData.rootPgNo,tablemetaData.tabName);
       for(Integer pageNo :  bPlusOneTree.getAllLeaves(condition))
       {
             short deleteCountPerPage = 0;
@@ -90,37 +90,37 @@ public class DavisBaseBinaryFile {
             {
                if(condition!=null)
                {
-                  if(!condition.chkCondt(record.getAttributes().get(condition.columnOrdinal).fieldValue))
+                  if(!condition.chkCondt(record.getAttributes().get(condition.columnOrdinal).fldVal))
                      continue;
                }
                count++;
                for(int i :newValueMap.keySet())
                {
                   TableAttribute oldValue = record.getAttributes().get(i);
-                  int rowId = record.rowId;
-                  if((record.getAttributes().get(i).dataType == DataTypes.TEXT
-                   && record.getAttributes().get(i).fieldValue.length() == newValueMap.get(i).fieldValue.length())
-                     || (record.getAttributes().get(i).dataType != DataTypes.NULL && record.getAttributes().get(i).dataType != DataTypes.TEXT)
+                  int rowId = record.rId;
+                  if((record.getAttributes().get(i).dt == DataTypes.TEXT
+                   && record.getAttributes().get(i).fldVal.length() == newValueMap.get(i).fldVal.length())
+                     || (record.getAttributes().get(i).dt != DataTypes.NULL && record.getAttributes().get(i).dt != DataTypes.TEXT)
                   ){
-                     page.updateRecords(record,i,newValueMap.get(i).fieldValueByte);
+                     page.updateRecords(record,i,newValueMap.get(i).fldValByte);
                   }
                   else{
                    //Delete the record and insert a new one, update indexes
-                     page.deleteTableRecord(tablemetaData.tableName ,
-                     Integer.valueOf(record.pageHeaderIndex - deleteCountPerPage).shortValue());
+                     page.deleteTableRecord(tablemetaData.tabName ,
+                     Integer.valueOf(record.pgHeaderIndx - deleteCountPerPage).shortValue());
                      deleteCountPerPage++;
                      List<TableAttribute> attrs = record.getAttributes();
                      TableAttribute attr = attrs.get(i);
                      attrs.remove(i);
                      attr = newValueMap.get(i);
                      attrs.add(i, attr);
-                    rowId =  page.addTbRows(tablemetaData.tableName , attrs);
+                    rowId =  page.addTbRows(tablemetaData.tabName , attrs);
                 }
                 
-                if(tablemetaData.columnNameAttrs.get(i).hasIndex && condition!=null){
-                  RandomAccessFile indexFile = new RandomAccessFile(TableUtils.getIndexFilePath(tablemetaData.columnNameAttrs.get(i).tableName, tablemetaData.columnNameAttrs.get(i).columnName), "rw");
+                if(tablemetaData.colNameAttrs.get(i).hasIdx && condition!=null){
+                  RandomAccessFile indexFile = new RandomAccessFile(TableUtils.getIndexFilePath(tablemetaData.colNameAttrs.get(i).tblName, tablemetaData.colNameAttrs.get(i).colName), "rw");
                   BTree bTree = new BTree(indexFile);
-                  bTree.deleteRow(oldValue,record.rowId);
+                  bTree.deleteRow(oldValue,record.rId);
                   bTree.insertRow(newValueMap.get(i), rowId);
                   indexFile.close();
                 }
@@ -129,7 +129,7 @@ public class DavisBaseBinaryFile {
              }
       }
     
-      if(!tablemetaData.tableName.equals(systemTablesFile) && !tablemetaData.tableName.equals(systemColumnsFile))
+      if(!tablemetaData.tabName.equals(systemTablesFile) && !tablemetaData.tabName.equals(systemColumnsFile))
           System.out.println("* " + count+" record(s) updated.");
           
          return count;
@@ -274,10 +274,10 @@ public class DavisBaseBinaryFile {
       }
   
       for (int i : ordinalPositions) {
-          String columnName = tableMetaData.columnNameAttrs.get(i).columnName;
+          String columnName = tableMetaData.colNameAttrs.get(i).colName;
           columnPrintLength = Math.max(
               columnName.length(),
-              tableMetaData.columnNameAttrs.get(i).dataType.getPrintOffset()
+              tableMetaData.colNameAttrs.get(i).dType.getPrintOffset()
           ) + 5;
           printPosition.add(columnPrintLength);
           System.out.print(columnName);
@@ -290,7 +290,7 @@ public class DavisBaseBinaryFile {
       System.out.println(TableUtils.printSeparator("-", totalTablePrintLength));
       //System.out.println("[DEBUG] Table header printed.");
   
-      BPlusOneTree bPlusOneTree = new BPlusOneTree(file, tableMetaData.rootPageNo, tableMetaData.tableName);
+      BPlusOneTree bPlusOneTree = new BPlusOneTree(file, tableMetaData.rootPgNo, tableMetaData.tabName);
       //System.out.println("[DEBUG] BPlusOneTree initialized.");
   
       String currentValue = "";
@@ -311,14 +311,14 @@ public class DavisBaseBinaryFile {
   
               int columnCount = 0;
               if (showRowId) {
-                  currentValue = Integer.valueOf(record.rowId).toString();
+                  currentValue = Integer.valueOf(record.rId).toString();
                   System.out.print(currentValue);
                   System.out.print(TableUtils.printSeparator(" ", printPosition.get(++columnCount) - currentValue.length()));
                   //System.out.println("[DEBUG] Printed Row ID: " + currentValue);
               }
   
               for (int i : ordinalPositions) {
-                  currentValue = record.getAttributes().get(i).fieldValue;
+                  currentValue = record.getAttributes().get(i).fldVal;
                   System.out.print(currentValue);
                   System.out.print(TableUtils.printSeparator(" ", printPosition.get(++columnCount) - currentValue.length()));
                   //System.out.println("[DEBUG] Printed Column Value: " + currentValue + " for Column Index: " + i);
@@ -334,7 +334,7 @@ public class DavisBaseBinaryFile {
 private boolean evaluateConditionTree(SpecialCondition condition, TableRecord record) {
    if (!condition.isCompound) {
        // Evaluate a simple condition
-       String currentValue = record.getAttributes().get(condition.columnOrdinal).fieldValue;
+       String currentValue = record.getAttributes().get(condition.columnOrdinal).fldVal;
        return condition.chkCondt(currentValue);
    }
 
