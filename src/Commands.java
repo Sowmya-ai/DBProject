@@ -107,7 +107,7 @@ public class Commands {
     
         // Load table metadata
         MetaData tableMetaData = new MetaData(table_name);
-        if (!tableMetaData.tableExists) {
+        if (!tableMetaData.tabExists) {
             System.out.println("! Table does not exist");
             return;
         }
@@ -123,7 +123,7 @@ public class Commands {
     
         // If no specific columns are mentioned, select all
         if (column_names.isEmpty()) {
-            column_names = tableMetaData.columnNames;
+            column_names = tableMetaData.colNames;
         }
     
         try {
@@ -168,8 +168,8 @@ String whereClause = query.substring(query.indexOf("where") + 6).trim();
                 String column = tokens.get(i-1);
                 String operator = extractOperator(token);
                 String value = tokens.get(i+1).replace("'", "").replace("\"", "");
-                int columnIndex = tableMetaData.columnNames.indexOf(column);
-                SpecialCondition condition = new SpecialCondition(tableMetaData.columnNameAttrs.get(columnIndex).dataType);
+                int columnIndex = tableMetaData.colNames.indexOf(column);
+                SpecialCondition condition = new SpecialCondition(tableMetaData.colNameAttrs.get(columnIndex).dType);
                 condition.setColumName(column);
                 condition.setColumnOrdinal(columnIndex);
                 condition.setOp(operator);
@@ -180,7 +180,7 @@ String whereClause = query.substring(query.indexOf("where") + 6).trim();
                 }
     
                 if (!tableMetaData.columnExists(new ArrayList<>(Collections.singletonList(column)))) {
-                    throw new Exception("! Invalid Table/Column : " + tableMetaData.tableName + " . " + column);
+                    throw new Exception("! Invalid Table/Column : " + tableMetaData.tabName + " . " + column);
                 }
     
                 if (currentCondition == null) {
@@ -248,13 +248,13 @@ String whereClause = query.substring(query.indexOf("where") + 6).trim();
 
             MetaData metaData = new MetaData(tableName);
 
-           if (!metaData.tableExists) {
+           if (!metaData.tabExists) {
                 System.out.println("! Invalid Table name");
                 tableFile.close();
                 return;
             }
 
-            int columnOrdinal = metaData.columnNames.indexOf(columnName);
+            int columnOrdinal = metaData.colNames.indexOf(columnName);
 
             if (columnOrdinal < 0) {
                 System.out.println("! Invalid column name");
@@ -266,13 +266,13 @@ String whereClause = query.substring(query.indexOf("where") + 6).trim();
             RandomAccessFile indexFile = new RandomAccessFile("data/" + indexName + ".ndx", "rw");
             Page.addNewPage(indexFile, PageType.LEAFINDEX, -1, -1);
 
-            if (metaData.recordCount > 0) {
-                BPlusOneTree bPlusOneTree = new BPlusOneTree(tableFile, metaData.rootPageNo, metaData.tableName);
+            if (metaData.recCount > 0) {
+                BPlusOneTree bPlusOneTree = new BPlusOneTree(tableFile, metaData.rootPgNo, metaData.tabName);
                 for(int pageNo : bPlusOneTree.getAllLeaves()) {
                     Page page = new Page(tableFile, pageNo);
                     BTree bTree = new BTree(indexFile);
                     for (TableRecord record : page.getPageRecords()) {
-                        bTree.insertRow(record.getAttributes().get(columnOrdinal), record.rowId);
+                        bTree.insertRow(record.getAttributes().get(columnOrdinal), record.rId);
                         }
                 }
             }
@@ -371,7 +371,7 @@ String whereClause = query.substring(query.indexOf("where") + 6).trim();
 
         MetaData metadata = new MetaData(table_name);
 
-        if (!metadata.tableExists) {
+        if (!metadata.tabExists) {
             System.out.println("! Invalid Table name");
             return;
         }
@@ -403,10 +403,10 @@ String whereClause = query.substring(query.indexOf("where") + 6).trim();
             if(noOfRecordsupdated > 0)
             {
                 List<Integer> allRowids = new ArrayList<>();
-                for(ColumnInformation colInfo : metadata.columnNameAttrs)
+                for(ColumnInformation colInfo : metadata.colNameAttrs)
                 {
                     for(int i=0;i<columnsToUpdate.size();i++)
-                        if(colInfo.columnName.equals(columnsToUpdate.get(i)) &&  colInfo.hasIndex)
+                        if(colInfo.colName.equals(columnsToUpdate.get(i)) &&  colInfo.hasIdx)
                         {
 
                             // when there is no condition, All rows in the column gets updated the index value point to all rowids
@@ -416,11 +416,11 @@ String whereClause = query.substring(query.indexOf("where") + 6).trim();
 
                                 if(allRowids.size() == 0)
                                 {
-                                    BPlusOneTree bPlusOneTree = new BPlusOneTree(file, metadata.rootPageNo, metadata.tableName);
+                                    BPlusOneTree bPlusOneTree = new BPlusOneTree(file, metadata.rootPgNo, metadata.tabName);
                                     for (int pageNo : bPlusOneTree.getAllLeaves()) {
                                         Page currentPage = new Page(file, pageNo);
                                         for (TableRecord record : currentPage.getPageRecords()) {
-                                            allRowids.add(record.rowId);
+                                            allRowids.add(record.rId);
                                         }
                                     }
                                 }
@@ -429,7 +429,7 @@ String whereClause = query.substring(query.indexOf("where") + 6).trim();
                                         "rw");
                                 Page.addNewPage(indexFile, PageType.LEAFINDEX, -1, -1);
                                 BTree bTree = new BTree(indexFile);
-                                bTree.insertRow(new TableAttribute(colInfo.dataType,valueToUpdate.get(i)), allRowids);
+                                bTree.insertRow(new TableAttribute(colInfo.dType,valueToUpdate.get(i)), allRowids);
                             }
                         }
                 }
@@ -469,7 +469,7 @@ String whereClause = query.substring(query.indexOf("where") + 6).trim();
         // Fetch metadata to ensure the table exists
         MetaData dstMetaData = new MetaData(tableName);
 
-        if (!dstMetaData.tableExists) {
+        if (!dstMetaData.tabExists) {
             System.out.println("! Table does not exist.");
             return;
         }
@@ -482,7 +482,7 @@ String whereClause = query.substring(query.indexOf("where") + 6).trim();
         ArrayList<String> valueTokens = new ArrayList<String>(Arrays.asList(valuesString.split(",")));
 
          // Ensure that the number of values matches the number of columns in the table
-        if (valueTokens.size() != dstMetaData.columnNameAttrs.size()) {
+        if (valueTokens.size() != dstMetaData.colNameAttrs.size()) {
             System.out.println("! Number of values does not match the number of columns in the table.");
             return;
         }
@@ -492,11 +492,11 @@ String whereClause = query.substring(query.indexOf("where") + 6).trim();
             valueTokens.set(i, valueTokens.get(i).trim());
 
             // If the column is TEXT, we expect the value to be surrounded by quotes.
-            ColumnInformation colInfo = dstMetaData.columnNameAttrs.get(i);
-            if (colInfo.dataType == DataTypes.TEXT) {
+            ColumnInformation colInfo = dstMetaData.colNameAttrs.get(i);
+            if (colInfo.dType == DataTypes.TEXT) {
                 // Ensure that the value is surrounded by quotes for TEXT columns
                 if (!valueTokens.get(i).startsWith("\"") || !valueTokens.get(i).endsWith("\"")) {
-                    System.out.println("! Error: Value for column " + colInfo.columnName + " must be enclosed in quotes (TEXT type).");
+                    System.out.println("! Error: Value for column " + colInfo.colName + " must be enclosed in quotes (TEXT type).");
                     return;
                 }
                 // Remove quotes for TEXT columns (value is valid, just clean it for insertion)
@@ -510,14 +510,14 @@ String whereClause = query.substring(query.indexOf("where") + 6).trim();
         // Prepare attributes to insert
         List<TableAttribute> attributeToInsert = new ArrayList<>();
 
-        for (int i = 0; i < dstMetaData.columnNameAttrs.size(); i++) {
-            ColumnInformation colInfo = dstMetaData.columnNameAttrs.get(i);
+        for (int i = 0; i < dstMetaData.colNameAttrs.size(); i++) {
+            ColumnInformation colInfo = dstMetaData.colNameAttrs.get(i);
             String value = valueTokens.get(i);
 
             // Handle NULL values
             if (value.equals("null")) {
                 if (!colInfo.isNullable) {
-                    System.out.println("! Cannot insert NULL into non-nullable column: " + colInfo.columnName);
+                    System.out.println("! Cannot insert NULL into non-nullable column: " + colInfo.colName);
                     return;
                 }
                 value = "NULL"; // represent NULL explicitly
@@ -526,33 +526,33 @@ String whereClause = query.substring(query.indexOf("where") + 6).trim();
             try {
                 // Validate data type using the isValidDataType function
                 if (!isValidDataType(value, colInfo)) {
-                    System.out.println("! Invalid data type for column " + colInfo.columnName + ". Expected " + colInfo.dataType + " but got: " + value);
+                    System.out.println("! Invalid data type for column " + colInfo.colName + ". Expected " + colInfo.dType + " but got: " + value);
                     return;
                 }
 
                 // Create a TableAttribute object with the column's data type and value
-                TableAttribute attr = new TableAttribute(colInfo.dataType, value);
+                TableAttribute attr = new TableAttribute(colInfo.dType, value);
                 attributeToInsert.add(attr);
             } catch (Exception e) {
-                System.out.println("! Invalid data format for column: " + colInfo.columnName);
+                System.out.println("! Invalid data format for column: " + colInfo.colName);
                 return;
             }
         }
 
         // Perform the insertion into the table
         RandomAccessFile dstTable = new RandomAccessFile(TableUtils.getTablePath(tableName), "rw");
-        int dstPageNo = BPlusOneTree.getPgNoForInsert(dstTable, dstMetaData.rootPageNo);
+        int dstPageNo = BPlusOneTree.getPgNoForInsert(dstTable, dstMetaData.rootPgNo);
         Page dstPage = new Page(dstTable, dstPageNo);
 
         int rowNo = dstPage.addTbRows(tableName, attributeToInsert);
 
         // Update indexes if necessary
         if (rowNo != -1) {
-            for (int i = 0; i < dstMetaData.columnNameAttrs.size(); i++) {
-                ColumnInformation col = dstMetaData.columnNameAttrs.get(i);
+            for (int i = 0; i < dstMetaData.colNameAttrs.size(); i++) {
+                ColumnInformation col = dstMetaData.colNameAttrs.get(i);
 
-                if (col.hasIndex) {
-                    RandomAccessFile indexFile = new RandomAccessFile(TableUtils.getIndexFilePath(tableName, col.columnName), "rw");
+                if (col.hasIdx) {
+                    RandomAccessFile indexFile = new RandomAccessFile(TableUtils.getIndexFilePath(tableName, col.colName), "rw");
                     BTree bTree = new BTree(indexFile);
                     bTree.insertRow(attributeToInsert.get(i), rowNo);
                 }
@@ -574,13 +574,13 @@ String whereClause = query.substring(query.indexOf("where") + 6).trim();
 
 public static boolean isValidDataType(String value, ColumnInformation colInfo) {
     try {
-        switch (colInfo.dataType) {
-            case DataTypes.INT: // Change to DataTypes.INTEGER
+        switch (colInfo.dType) {
+            case INT: // Change to DataTypes.INTEGER
                 Integer.parseInt(value); // Validates if value is an integer
                 return true; // Return true for valid integer
-            case DataTypes.TEXT: // Change to DataTypes.TEXT
+            case TEXT: // Change to DataTypes.TEXT
                 return true; // Return true for valid text (no need for further validation)
-            case DataTypes.FLOAT: // Change to DataTypes.FLOAT
+            case FLOAT: // Change to DataTypes.FLOAT
                 Float.parseFloat(value); // Validates if value is a float
                 return true; // Return true for valid float
             default:
@@ -616,7 +616,7 @@ public static boolean isValidDataType(String value, ColumnInformation colInfo) {
             }
             RandomAccessFile tableFile = new RandomAccessFile(TableUtils.getTablePath(tableName), "rw");
 
-            BPlusOneTree tree = new BPlusOneTree(tableFile, metaData.rootPageNo, metaData.tableName);
+            BPlusOneTree tree = new BPlusOneTree(tableFile, metaData.rootPgNo, metaData.tabName);
             List<TableRecord> deletedRecords = new ArrayList<TableRecord>();
             int count = 0;
             for (int pageNo : tree.getAllLeaves(condition)) {
@@ -624,13 +624,13 @@ public static boolean isValidDataType(String value, ColumnInformation colInfo) {
                 Page page = new Page(tableFile, pageNo);
                 for (TableRecord record : page.getPageRecords()) {
                     if (condition != null) {
-                        if (!condition.chkCondt(record.getAttributes().get(condition.columnOrdinal).fieldValue))
+                        if (!condition.chkCondt(record.getAttributes().get(condition.columnOrdinal).fldVal))
                             continue;
                     }
 
                     deletedRecords.add(record);
                     page.deleteTableRecord(tableName,
-                            Integer.valueOf(record.pageHeaderIndex - deleteCountPerPage).shortValue());
+                            Integer.valueOf(record.pgHeaderIndx - deleteCountPerPage).shortValue());
                     deleteCountPerPage++;
                     count++;
                 }
@@ -648,12 +648,12 @@ public static boolean isValidDataType(String value, ColumnInformation colInfo) {
 
 
             } else {
-                for (int i = 0; i < metaData.columnNameAttrs.size(); i++) {
-                    if (metaData.columnNameAttrs.get(i).hasIndex) {
-                        RandomAccessFile indexFile = new RandomAccessFile(TableUtils.getIndexFilePath(tableName, metaData.columnNameAttrs.get(i).columnName), "rw");
+                for (int i = 0; i < metaData.colNameAttrs.size(); i++) {
+                    if (metaData.colNameAttrs.get(i).hasIdx) {
+                        RandomAccessFile indexFile = new RandomAccessFile(TableUtils.getIndexFilePath(tableName, metaData.colNameAttrs.get(i).colName), "rw");
                         BTree bTree = new BTree(indexFile);
                         for (TableRecord record : deletedRecords) {
-                            bTree.deleteRow(record.getAttributes().get(i),record.rowId);
+                            bTree.deleteRow(record.getAttributes().get(i),record.rId);
                         }
                     }
                 }
@@ -715,13 +715,13 @@ public static boolean isValidDataType(String value, ColumnInformation colInfo) {
             }
 
 
-            if (tableMetaData.tableExists
+            if (tableMetaData.tabExists
                     && tableMetaData.columnExists(new ArrayList<String>(Arrays.asList(condition.columnName)))) {
-                condition.columnOrdinal = tableMetaData.columnNames.indexOf(condition.columnName);
-                condition.dataType = tableMetaData.columnNameAttrs.get(condition.columnOrdinal).dataType;
+                condition.columnOrdinal = tableMetaData.colNames.indexOf(condition.columnName);
+                condition.dataType = tableMetaData.colNameAttrs.get(condition.columnOrdinal).dType;
             } else {
                 throw new Exception(
-                        "! Invalid Table/Column : " + tableMetaData.tableName + " . " + condition.columnName);
+                        "! Invalid Table/Column : " + tableMetaData.tabName + " . " + condition.columnName);
             }
             return condition;
         } else
@@ -844,10 +844,10 @@ public static boolean isValidDataType(String value, ColumnInformation colInfo) {
 
                 ArrayList<String> colInfoToken = new ArrayList<String>(Arrays.asList(columnToken.trim().split(" ")));
                 ColumnInformation colInfo = new ColumnInformation();
-                colInfo.tableName = tableName;
-                colInfo.columnName = colInfoToken.get(0);
+                colInfo.tblName = tableName;
+                colInfo.colName = colInfoToken.get(0);
                 colInfo.isNullable = true;
-                colInfo.dataType = DataTypes.get(colInfoToken.get(1).toUpperCase());
+                colInfo.dType = DataTypes.get(colInfoToken.get(1).toUpperCase());
                 for (int i = 0; i < colInfoToken.size(); i++) {
 
                     if ((colInfoToken.get(i).equals("null"))) {
@@ -859,17 +859,17 @@ public static boolean isValidDataType(String value, ColumnInformation colInfo) {
                     }
 
                     if ((colInfoToken.get(i).equals("unique"))) {
-                        colInfo.isUnique = true;
+                        colInfo.unique = true;
                     } else if (colInfoToken.get(i).contains("primary") && (colInfoToken.get(i + 1).contains("key"))) {
-                        colInfo.isPrimaryKey = true;
-                        colInfo.isUnique = true;
+                        colInfo.isPrimKey = true;
+                        colInfo.unique = true;
                         colInfo.isNullable = false;
-                        primaryKeyColumn = colInfo.columnName;
+                        primaryKeyColumn = colInfo.colName;
                         i++;
                     }
 
                 }
-                colInfo.ordinalPosition = ordinalPosition++;
+                colInfo.ordPos = ordinalPosition++;
                 lstcolumnInformation.add(colInfo);
 
             }
@@ -879,7 +879,7 @@ public static boolean isValidDataType(String value, ColumnInformation colInfo) {
                     TableUtils.getTablePath(DavisBaseBinaryFile.systemTablesFile), "rw");
             MetaData davisbaseTableMetaData = new MetaData(DavisBaseBinaryFile.systemTablesFile);
 
-            int pageNo = BPlusOneTree.getPgNoForInsert(davisbaseTablesCatalog, davisbaseTableMetaData.rootPageNo);
+            int pageNo = BPlusOneTree.getPgNoForInsert(davisbaseTablesCatalog, davisbaseTableMetaData.rootPgNo);
 
             Page page = new Page(davisbaseTablesCatalog, pageNo);
 
@@ -900,7 +900,7 @@ public static boolean isValidDataType(String value, ColumnInformation colInfo) {
             RandomAccessFile davisbaseColumnsCatalog = new RandomAccessFile(
                     TableUtils.getTablePath(DavisBaseBinaryFile.systemColumnsFile), "rw");
             MetaData davisbaseColumnsMetaData = new MetaData(DavisBaseBinaryFile.systemColumnsFile);
-            pageNo = BPlusOneTree.getPgNoForInsert(davisbaseColumnsCatalog, davisbaseColumnsMetaData.rootPageNo);
+            pageNo = BPlusOneTree.getPgNoForInsert(davisbaseColumnsCatalog, davisbaseColumnsMetaData.rootPgNo);
 
             Page page1 = new Page(davisbaseColumnsCatalog, pageNo);
 
