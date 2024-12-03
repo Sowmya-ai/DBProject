@@ -45,9 +45,9 @@ public class MetaData{
                //search theough all the records in each page
                for (TableRecord Record : page.getPageRecords()) {
                    //if the Record with table is found, get the root page No and Record count; break the loop
-                  if (new String(Record.getAttributes().get(0).fieldValue).equals(tabName)) {
-                    this.rootPgNo = Integer.parseInt(Record.getAttributes().get(3).fieldValue);
-                    recCount = Integer.parseInt(Record.getAttributes().get(1).fieldValue);
+                  if (new String(Record.getAttributes().get(0).fldVal).equals(tabName)) {
+                    this.rootPgNo = Integer.parseInt(Record.getAttributes().get(3).fldVal);
+                    recCount = Integer.parseInt(Record.getAttributes().get(1).fldVal);
                     tabExists = true;
                      break;
                   }
@@ -100,21 +100,21 @@ public class MetaData{
               
               for (TableRecord Record : page.getPageRecords()) {
                   
-                 if (Record.getAttributes().get(0).fieldValue.equals(tableName)) {
+                 if (Record.getAttributes().get(0).fldVal.equals(tabName)) {
                     {
                      //set column information in the data members of the class
                        colData.add(Record);
-                       colNames.add(Record.getAttributes().get(1).fieldValue);
+                       colNames.add(Record.getAttributes().get(1).fldVal);
                        ColumnInformation columnInfo = new ColumnInformation(
                                           tabName  
-                                        , DataTypes.get(Record.getAttributes().get(2).fieldValue)
-                                        , Record.getAttributes().get(1).fieldValue
-                                        , Record.getAttributes().get(6).fieldValue.equals("YES")
-                                        , Record.getAttributes().get(4).fieldValue.equals("YES")
-                                        , Short.parseShort(Record.getAttributes().get(3).fieldValue)
+                                        , DataTypes.get(Record.getAttributes().get(2).fldVal)
+                                        , Record.getAttributes().get(1).fldVal
+                                        , Record.getAttributes().get(6).fldVal.equals("YES")
+                                        , Record.getAttributes().get(4).fldVal.equals("YES")
+                                        , Short.parseShort(Record.getAttributes().get(3).fldVal)
                                         );
                                           
-                    if(Record.getAttributes().get(5).fieldValue.equals("PRI"))
+                    if(Record.getAttributes().get(5).fldVal.equals("PRI"))
                           columnInfo.setAsPrimaryKey();
                         
                      colNameAttrs.add(columnInfo);                      
@@ -139,8 +139,8 @@ public class MetaData{
      List<String> lColumns =new ArrayList<>(columns);
 
       for (ColumnInformation column_name_attr : colNameAttrs) {
-         if (lColumns.contains(column_name_attr.colNames))
-            lColumns.remove(column_name_attr.colNames);
+         if (lColumns.contains(column_name_attr.colName))
+            lColumns.remove(column_name_attr.colName);
       }
 
       return lColumns.isEmpty();
@@ -173,7 +173,7 @@ public class MetaData{
          newValues.add(Integer.valueOf(rootPgNo).toString());
 
          tablesBinaryFile.updateRecords(tablesMetaData,cdtn,columns,newValues);                                              
-         dbtableCatelog.close();
+         dbtabCatalog.close();
    }
    catch(IOException e){
       System.out.println("! Error updating meta data for " + tabName);
@@ -187,18 +187,18 @@ public class MetaData{
    DavisBaseBinaryFile file = new DavisBaseBinaryFile(tableFile);                  
       for(int i=0;i<colNameAttrs.size();i++)
       {      
-         SpecialCondition cdtn = new SpecialCondition(colNameAttrs.get(i).dataType);
-         cdtn.colNames = colNameAttrs.get(i).colNames;
+         SpecialCondition cdtn = new SpecialCondition(colNameAttrs.get(i).dType);
+         cdtn.columnName = colNameAttrs.get(i).colName;
          cdtn.columnOrdinal = i;
          cdtn.setOp("=");
 
-         if(colNameAttrs.get(i).isUnique)
+         if(colNameAttrs.get(i).unique)
          {
-               cdtn.setConditionValue(row.get(i).fieldValue);
+               cdtn.setConditionValue(row.get(i).fldVal);
                
-               if(file.recordExists(this, Arrays.asList(colNameAttrs.get(i).colNames), cdtn)){
+               if(file.recordExists(this, Arrays.asList(colNameAttrs.get(i).colName), cdtn)){
                   // trying to add column name that already exists
-                  System.out.println("! Insert failed: Column "+ colNameAttrs.get(i).colNames + " should be unique." );
+                  System.out.println("! Insert failed: Column "+ colNameAttrs.get(i).colName + " should be unique." );
                   tableFile.close();
                   return false;
                }      
