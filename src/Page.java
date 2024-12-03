@@ -123,13 +123,13 @@ public class Page {
      */
   public void updateRecords(TableRecord rec,int ordPos,Byte[] newVal) throws IOException
   {
-    binaryFile.seek(pageStart + rec.recordOffset + 7);
+    binaryFile.seek(pageStart + rec.recOffst + 7);
     int valueOffset = 0;
     for(int i=0;i<ordPos;i++)
     {
       valueOffset+= DataTypes.getLength((byte)binaryFile.readByte());
     }
-    binaryFile.seek(pageStart + rec.recordOffset + 7 + rec.colDatatypes.length + valueOffset);
+    binaryFile.seek(pageStart + rec.recOffst + 7 + rec.colDt.length + valueOffset);
     binaryFile.write(ByteConvertor.Bytestobytes(newVal));
       
   }
@@ -143,14 +143,14 @@ public class Page {
   {
     try {
       addTbRows(DavisBaseBinaryFile.systemColumnsFile, Arrays.asList(new TableAttribute[] {
-        new TableAttribute(DataTypes.TEXT, colInfo.tableName),
-        new TableAttribute(DataTypes.TEXT, colInfo.columnName),
-        new TableAttribute(DataTypes.TEXT, colInfo.dataType.toString()),
-        new TableAttribute(DataTypes.SMALLINT, colInfo.ordinalPosition.toString()),
-        new TableAttribute(DataTypes.TEXT, colInfo .isNullable ? "YES":"NO"),
-        colInfo .isPrimaryKey ?
+        new TableAttribute(DataTypes.TEXT, colInfo.tblName),
+        new TableAttribute(DataTypes.TEXT, colInfo.colName),
+        new TableAttribute(DataTypes.TEXT, colInfo.dType.toString()),
+        new TableAttribute(DataTypes.SMALLINT, colInfo.ordPos.toString()),
+        new TableAttribute(DataTypes.TEXT, colInfo.isNullable ? "YES":"NO"),
+        colInfo .isPrimKey ?
         new TableAttribute(DataTypes.TEXT, "PRI") : new TableAttribute(DataTypes.NULL, "NULL") ,
-        new TableAttribute(DataTypes.TEXT, colInfo .isUnique ? "YES": "NO")
+        new TableAttribute(DataTypes.TEXT, colInfo.unique ? "YES": "NO")
        })); 
     } catch (Exception e) {
       System.out.println("! Could not add column");
@@ -180,16 +180,16 @@ public int addTbRows(String tbName,List<TableAttribute> attr) throws IOException
       for(TableAttribute attribute : attr)
       {
         //add value for the record body
-        recordBody.addAll(Arrays.asList(attribute.fieldValueByte));
+        recordBody.addAll(Arrays.asList(attribute.fldValByte));
        
         //Fill column Datatype for every attribute in the row
-        if(attribute.dataType == DataTypes.TEXT)
+        if(attribute.dt == DataTypes.TEXT)
           {
-             colDataTypes.add(Integer.valueOf(DataTypes.TEXT.getVal() + (new String(attribute.fieldValue).length())).byteValue());
+             colDataTypes.add(Integer.valueOf(DataTypes.TEXT.getVal() + (new String(attribute.fldVal).length())).byteValue());
           }
         else
           {
-              colDataTypes.add(attribute.dataType.getVal());
+              colDataTypes.add(attribute.dt.getVal());
           }
         }
 
@@ -214,7 +214,7 @@ public int addTbRows(String tbName,List<TableAttribute> attr) throws IOException
          refreshTableRecords = true;
          if(DavisBaseBinaryFile.isSystemInitialized)
          {
-            metaData.recordCount++;
+            metaData.recCount++;
             metaData.updateMetaData();
          }
            return lastRowId;
@@ -288,7 +288,7 @@ public int addTbRows(String tbName,List<TableAttribute> attr) throws IOException
   {
     deletePageRecord(recIdx);
     MetaData metaData = new MetaData(tbName);
-    metaData.recordCount --;
+    metaData.recCount --;
     metaData.updateMetaData();
     refreshTableRecords = true;
 
@@ -376,11 +376,11 @@ public int addTbRows(String tbName,List<TableAttribute> attr) throws IOException
        Page parentPage = new Page(binaryFile,parentPageNo);
      
        //shift page based on the incoming index value
-       int comparisonResult= SpecialCondition.compare(incomingInsertTemp.indexValue.fieldValue,toInsertParentIndexNode.indexValue.fieldValue,incomingInsert.indexValue.dataType);
+       int comparisonResult= SpecialCondition.compare(incomingInsertTemp.indValue.fldVal,toInsertParentIndexNode.indValue.fldVal,incomingInsert.indValue.dt);
        
        if(comparisonResult == 0)
        {
-          toInsertParentIndexNode.rowids.addAll(incomingInsertTemp.rowids);
+          toInsertParentIndexNode.rowId.addAll(incomingInsertTemp.rowId);
           parentPage.addIdx(toInsertParentIndexNode,newLeftLeafPageNo);
           movePage(parentPage);
           return;
@@ -412,7 +412,7 @@ public int addTbRows(String tbName,List<TableAttribute> attr) throws IOException
            clearPage();
           for (int i = 0; i < indexValuesTemp.length; i++) {
 
-              addIdx(indexValuePointerTemp.get(indexValuesTemp[i]).getIndxNd(),indexValuePointerTemp.get(indexValuesTemp[i]).leftPageNo);
+              addIdx(indexValuePointerTemp.get(indexValuesTemp[i]).getIndxNd(),indexValuePointerTemp.get(indexValuesTemp[i]).leftPgNo);
           }
 
            addIdx(incomingInsertTemp);
@@ -448,17 +448,17 @@ public int addTbRows(String tbName,List<TableAttribute> attr) throws IOException
 
         Page parentPage = new Page(binaryFile,parentPageNo);
        //shift page based on the incoming index value
-       int comparisonResult= SpecialCondition.compare(incomingInsertTemp.indexValue.fieldValue,toInsertParentIndexNode.indexValue.fieldValue,incomingInsert.indexValue.dataType);
+       int comparisonResult= SpecialCondition.compare(incomingInsertTemp.indValue.fldVal,toInsertParentIndexNode.indValue.fldVal,incomingInsert.indValue.dt);
        
 
        //add the middle Orphan to the left page
-       Page middleOrphan = new Page(binaryFile,toInsertParentIndexNode.leftPageNo);
+       Page middleOrphan = new Page(binaryFile,toInsertParentIndexNode.leftPgNo);
        middleOrphan.setParent(parentPageNo);
        leftInteriorPage.setRightPageNo(middleOrphan.pageNo);
    
        if(comparisonResult == 0)
        {
-          toInsertParentIndexNode.rowids.addAll(incomingInsertTemp.rowids);
+          toInsertParentIndexNode.rowId.addAll(incomingInsertTemp.rowId);
           parentPage.addIdx(toInsertParentIndexNode,newLeftInteriorPageNo);
           movePage(parentPage);
           return;
@@ -513,13 +513,13 @@ public int addTbRows(String tbName,List<TableAttribute> attr) throws IOException
     String[] indexValuesTemp = getIdxVals().toArray(new String[getIdxVals().size()]);
 
     IndexNode toInsertParentIndexNode = indexValuePointer.get(indexValuesTemp[mid]).getIndxNd();
-    toInsertParentIndexNode.leftPageNo = indexValuePointer.get(indexValuesTemp[mid]).leftPageNo;
+    toInsertParentIndexNode.leftPgNo = indexValuePointer.get(indexValuesTemp[mid]).leftPgNo;
   
     HashMap<String, IndexRecord> indexValuePointerTemp = (HashMap<String, IndexRecord>) indexValuePointer.clone();
 
     for (int i = 0; i < mid; i++) {
 
-      newleftPg.addIdx(indexValuePointerTemp.get(indexValuesTemp[i]).getIndxNd(),indexValuePointerTemp.get(indexValuesTemp[i]).leftPageNo);
+      newleftPg.addIdx(indexValuePointerTemp.get(indexValuesTemp[i]).getIndxNd(),indexValuePointerTemp.get(indexValuesTemp[i]).leftPgNo);
     }
 
     clearPage();
@@ -531,7 +531,7 @@ public int addTbRows(String tbName,List<TableAttribute> attr) throws IOException
     for(int i=mid+1;i<indexValuesTemp.length;i++)
 
     {
-        addIdx(indexValuePointerTemp.get(indexValuesTemp[i]).getIndxNd(),indexValuePointerTemp.get(indexValuesTemp[i]).leftPageNo);
+        addIdx(indexValuePointerTemp.get(indexValuesTemp[i]).getIndxNd(),indexValuePointerTemp.get(indexValuesTemp[i]).leftPgNo);
     }
   
     return toInsertParentIndexNode;
@@ -645,7 +645,7 @@ public int addTbRows(String tbName,List<TableAttribute> attr) throws IOException
   {
     for( InteriorRecord intRecord: leftChildren)
     {
-      if(intRecord.rowId == rowId)
+      if(intRecord.rId == rowId)
         return pageNo;
     }
     if(pageType == PageType.INTERIOR)
@@ -717,7 +717,7 @@ public int addTbRows(String tbName,List<TableAttribute> attr) throws IOException
      */
  public void deleteIdx(IndexNode node) throws IOException
  {
-    deletePageRecord(indexValuePointer.get(node.indexValue.fieldValue).pageHeaderIndex);
+    deletePageRecord(indexValuePointer.get(node.indValue.fldVal).pgHeaderIndex);
      fillIdxRecord();
     refreshHeaderOffset();
  }
@@ -736,26 +736,26 @@ public int addTbRows(String tbName,List<TableAttribute> attr) throws IOException
  public void addIdx(IndexNode node,int leftPageNo) throws IOException
  {
   incomingInsert = node;
-  incomingInsert.leftPageNo = leftPageNo;
+  incomingInsert.leftPgNo = leftPageNo;
   List<Integer> rowIds = new ArrayList<>();
   
   //If index already exists, delete the old one, add the new rowid to the array and insert
   List<String> ixValues = getIdxVals();
-  if(getIdxVals().contains(node.indexValue.fieldValue))
+  if(getIdxVals().contains(node.indValue.fldVal))
   {
-      leftPageNo = indexValuePointer.get(node.indexValue.fieldValue).leftPageNo;
-      incomingInsert.leftPageNo = leftPageNo;
-      rowIds = indexValuePointer.get(node.indexValue.fieldValue).rowIds;
-      rowIds.addAll(incomingInsert.rowids);
-      incomingInsert.rowids = rowIds;
-      deletePageRecord(indexValuePointer.get(node.indexValue.fieldValue).pageHeaderIndex);
+      leftPageNo = indexValuePointer.get(node.indValue.fldVal).leftPgNo;
+      incomingInsert.leftPgNo = leftPageNo;
+      rowIds = indexValuePointer.get(node.indValue.fldVal).rowId;
+      rowIds.addAll(incomingInsert.rowId);
+      incomingInsert.rowId = rowIds;
+      deletePageRecord(indexValuePointer.get(node.indValue.fldVal).pgHeaderIndex);
       if(indexValueDataType == DataTypes.TEXT || indexValueDataType == null)
-        sIndexValues.remove(node.indexValue.fieldValue);
+        sIndexValues.remove(node.indValue.fldVal);
       else
-        lIndexValues.remove(Long.parseLong(node.indexValue.fieldValue));
+        lIndexValues.remove(Long.parseLong(node.indValue.fldVal));
   }
 
-     rowIds.addAll(node.rowids);
+     rowIds.addAll(node.rowId);
 
      rowIds = new ArrayList<>(new HashSet<>(rowIds));
 
@@ -767,14 +767,14 @@ public int addTbRows(String tbName,List<TableAttribute> attr) throws IOException
 
     //index data type
 
-    if(node.indexValue.dataType == DataTypes.TEXT)
-      recordBody.add(Integer.valueOf(node.indexValue.dataType.getVal() 
-                                + node.indexValue.fieldValue.length()).byteValue());
+    if(node.indValue.dt == DataTypes.TEXT)
+      recordBody.add(Integer.valueOf(node.indValue.dt.getVal() 
+                                + node.indValue.fldVal.length()).byteValue());
     else
-      recordBody.add(node.indexValue.dataType.getVal());
+      recordBody.add(node.indValue.dt.getVal());
  
     //index value
-    recordBody.addAll(Arrays.asList(node.indexValue.fieldValueByte));
+    recordBody.addAll(Arrays.asList(node.indValue.fldValByte));
 
 
     //list of rowids
@@ -841,11 +841,11 @@ public int addTbRows(String tbName,List<TableAttribute> attr) throws IOException
                         , lstRowIds,leftPageNo,rightPage,pageNo,cellStart);
 
                 if(indexValueDataType == DataTypes.TEXT || indexValueDataType == null)
-                    sIndexValues.add(record.getIndxNd().indexValue.fieldValue);
+                    sIndexValues.add(record.getIndxNd().indValue.fldVal);
                 else
-                    lIndexValues.add(Long.parseLong(record.getIndxNd().indexValue.fieldValue));
+                    lIndexValues.add(Long.parseLong(record.getIndxNd().indValue.fldVal));
 
-                indexValuePointer.put(record.getIndxNd().indexValue.fieldValue, record);
+                indexValuePointer.put(record.getIndxNd().indValue.fldVal, record);
 
             }
         } catch (IOException ex) {
@@ -859,7 +859,7 @@ public int addTbRows(String tbName,List<TableAttribute> attr) throws IOException
   binaryFile.seek(pageStart + 0x10);
   for(String indexVal : getIdxVals())
   {
-    binaryFile.writeShort(indexValuePointer.get(indexVal).pageOffset);
+    binaryFile.writeShort(indexValuePointer.get(indexVal).pgOffset);
   }
 
 } catch (IOException ex) {
