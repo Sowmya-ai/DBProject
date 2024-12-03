@@ -10,7 +10,7 @@ public class BTree {
 
     public BTree(RandomAccessFile file) {
         this.binFile = file;
-        this.rt = new Page(binFile, DavisBaseBinaryFile.getrtPage(binFile));
+        this.rt = new Page(binFile, DavisBaseBinaryFile.getRootPage(binFile));
     }
 
     /**
@@ -24,7 +24,7 @@ public class BTree {
         } else {
             if (SpecialCondition.compare(value , page.getIdxVals().get(0),page.indexValueDataType) < 0)
                 return getClosestPgNo
-                    (new Page(binFile,page.indexValuePointer.get(page.getIdxVals().get(0)).leftPageNo),
+                    (new Page(binFile,page.indexValuePointer.get(page.getIdxVals().get(0)).leftPgNo),
                         value);
             else if(SpecialCondition.compare(value,page.getIdxVals().get(page.getIdxVals().size()-1),page.indexValueDataType) > 0)
                 return getClosestPgNo(
@@ -37,11 +37,11 @@ public class BTree {
                 List<String> indexValues = page.getIdxVals();
                 if(closestValue.compareTo(value) < 0 && i+1 < indexValues.size())
                 {
-                    return page.indexValuePointer.get(indexValues.get(i+1)).leftPageNo;
+                    return page.indexValuePointer.get(indexValues.get(i+1)).leftPgNo;
                 }
                 else if(closestValue.compareTo(value) > 0)
                 {
-                    return page.indexValuePointer.get(closestValue).leftPageNo;
+                    return page.indexValuePointer.get(closestValue).leftPgNo;
                 }
                 else{
                     return page.pageNo;
@@ -66,12 +66,12 @@ public class BTree {
 
         for(int i=0;i< indexValues.size() && SpecialCondition.compare(indexValues.get(i), indexVal, page.indexValueDataType) < 0 ;i++)
         {
-            rowId.addAll(page.indexValuePointer.get(indexValues.get(i)).getIndxNd().rowids);
-            addChildRowIds(page.indexValuePointer.get(indexValues.get(i)).leftPageNo, rowId);
+            rowId.addAll(page.indexValuePointer.get(indexValues.get(i)).getIndxNd().rowId);
+            addChildRowIds(page.indexValuePointer.get(indexValues.get(i)).leftPgNo, rowId);
         }
 
         if(page.indexValuePointer.get(indexVal)!= null)
-            addChildRowIds(page.indexValuePointer.get(indexVal).leftPageNo, rowId);
+            addChildRowIds(page.indexValuePointer.get(indexVal).leftPgNo, rowId);
 
         return rowId;
     }
@@ -91,17 +91,17 @@ public class BTree {
         //get the index values for that page
         String[] indexValues= page.getIdxVals().toArray(new String[page.getIdxVals().size()]);
         
-        OperatorType operationType = condition.getOperation();
+        SpecialCondition.OperatorType operationType = condition.getOperation();
         
         //store the rowids if the indexvalue is equal to the closest value
         for(int i=0;i < indexValues.length;i++)
         {
-            if(condition.chkCondt(page.indexValuePointer.get(indexValues[i]).getIndxNd().indexValue.fieldValue))
+            if(condition.chkCondt(page.indexValuePointer.get(indexValues[i]).getIndxNd().indValue.fldVal))
                 rowId.addAll(page.indexValuePointer.get(indexValues[i]).rowId);
         }    
 
         //to store all the rowids from the left side of the node recursivesly
-        if(operationType == OperatorType.LESSTHAN || operationType == OperatorType.LESSTHANOREQUAL)
+        if(operationType == SpecialCondition.OperatorType.LESSTHAN || operationType == SpecialCondition.OperatorType.LESSTHANOREQUAL)
         {
            if(page.pageType == PageType.LEAFINDEX)
                rowId.addAll(getLeftRowId(page.parentPageNo,indexValues[0]));
@@ -110,7 +110,7 @@ public class BTree {
         }
 
          //to store all the rowids from the right side of the node recursively
-        if(operationType == OperatorType.GREATERTHAN || operationType == OperatorType.GREATERTHANOREQUAL)
+        if(operationType == SpecialCondition.OperatorType.GREATERTHAN || operationType == SpecialCondition.OperatorType.GREATERTHANOREQUAL)
         {
          if(page.pageType == PageType.LEAFINDEX)
             rowId.addAll(getRightRowId(page.parentPageNo,indexValues[indexValues.length - 1]));
@@ -136,12 +136,12 @@ public class BTree {
         List<String> indexValues = Arrays.asList(page.getIdxVals().toArray(new String[page.getIdxVals().size()]));
         for(int i=indexValues.size() - 1; i >= 0 && SpecialCondition.compare(indexValues.get(i), indexVal, page.indexValueDataType) > 0; i--)
         {
-               rowId.addAll(page.indexValuePointer.get(indexValues.get(i)).getIndxNd().rowids);
+               rowId.addAll(page.indexValuePointer.get(indexValues.get(i)).getIndxNd().rowId);
                 addChildRowIds(page.rightPage, rowId);
          }
 
         if(page.indexValuePointer.get(indexVal)!= null)
-           addChildRowIds(page.indexValuePointer.get(indexVal).rightPageNo, rowId);
+           addChildRowIds(page.indexValuePointer.get(indexVal).rightPgNo, rowId);
 
         return rowId;
     }
@@ -161,8 +161,8 @@ public class BTree {
                 rowId.addAll(record.rowId);
                 if(page.pageType == PageType.INTERIORINDEX)
                  {
-                    addChildRowIds(record.leftPageNo, rowId);
-                    addChildRowIds(record.rightPageNo, rowId);
+                    addChildRowIds(record.leftPgNo, rowId);
+                    addChildRowIds(record.rightPgNo, rowId);
                  }
             }  
     }
@@ -185,13 +185,13 @@ public class BTree {
     public void insertRow(TableAttribute attr,List<Integer> rowId)
     {
         try{
-            int pageNo = getClosestPgNo(rt, attr.fieldValue) ;
+            int pageNo = getClosestPgNo(rt, attr.fldVal) ;
             Page page = new Page(binFile, pageNo);
             page.addIdx(new IndexNode(attr,rowId));
             }
             catch(IOException e)
             {
-                 System.out.println("! Error while insering " + attr.fieldValue +" into index file");
+                 System.out.println("! Error while insering " + attr.fldVal +" into index file");
             }
     }
 
@@ -203,19 +203,19 @@ public class BTree {
     public void deleteRow(TableAttribute attr, int rowId)
     {
         try{
-            int pageNo = getClosestPgNo(rt, attr.fieldValue) ;
+            int pageNo = getClosestPgNo(rt, attr.fldVal) ;
             Page page = new Page(binFile, pageNo);
-            IndexNode tempNode = page.indexValuePointer.get(attr.fieldValue).getIndxNd();
+            IndexNode tempNode = page.indexValuePointer.get(attr.fldVal).getIndxNd();
             //remove the rowid from the index value
-            tempNode.rowids.remove(tempNode.rowids.indexOf(rowId));
+            tempNode.rowId.remove(tempNode.rowId.indexOf(rowId));
             page.deleteIdx(tempNode);
-            if(tempNode.rowids.size() !=0)
+            if(tempNode.rowId.size() !=0)
                page.addIdx(tempNode);
 
             }
             catch(IOException e)
             {
-                 System.out.println("! Error while deleting " + attr.fieldValue +" from index file");
+                 System.out.println("! Error while deleting " + attr.fldVal +" from index file");
             }
     }
 
