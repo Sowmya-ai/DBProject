@@ -42,11 +42,11 @@ public class BPlusOneTree {
     private void addLeaves(int intPageNo, List<Integer> leafPage) throws IOException {
         Page intPage = new Page(binaryFile, intPageNo);
         for (InteriorRecord leftPage : intPage.leftChildren) {
-            if (Page.getPageType(binaryFile, leftPage.leftChildPageNo) == PageType.LEAF) {
-                if (!leafPage.contains(leftPage.leftChildPageNo))
-                leafPage.add(leftPage.leftChildPageNo);
+            if (Page.getPageType(binaryFile, leftPage.leftChildPgNo) == PageType.LEAF) {
+                if (!leafPage.contains(leftPage.leftChildPgNo))
+                leafPage.add(leftPage.leftChildPgNo);
             } else {
-                addLeaves(leftPage.leftChildPageNo, leafPage);
+                addLeaves(leftPage.leftChildPgNo, leafPage);
             }
         }
 
@@ -61,7 +61,7 @@ public class BPlusOneTree {
 
     public List<Integer> getAllLeaves(SpecialCondition condition) throws IOException {
 
-        if (condition == null || condition.getOperation() == OperatorType.NOTEQUAL
+        if (condition == null || condition.getOperation() == SpecialCondition.OperatorType.NOTEQUAL
                 || !(new File(TableUtils.getIndexFilePath(tableName, condition.columnName)).exists())) {
             // Since there is no index, use brute force algorithm to trverse through all leaves
             return getAllLeaves();
@@ -113,11 +113,11 @@ public class BPlusOneTree {
 
         int index = binarySearch(pg.leftChildren, rowId, 0, pg.noOfCells - 1);
 
-        if (rowId < pg.leftChildren.get(index).rowId) {   //Recursion
-            return gtPgNo(rowId, new Page(binaryFile, pg.leftChildren.get(index).leftChildPageNo));
+        if (rowId < pg.leftChildren.get(index).rId) {   //Recursion
+            return gtPgNo(rowId, new Page(binaryFile, pg.leftChildren.get(index).leftChildPgNo));
         } else {
         if( index+1 < pg.leftChildren.size())
-            return gtPgNo(rowId, new Page(binaryFile, pg.leftChildren.get(index+1).leftChildPageNo));
+            return gtPgNo(rowId, new Page(binaryFile, pg.leftChildren.get(index+1).leftChildPgNo));
         else
            return gtPgNo(rowId, new Page(binaryFile, pg.rightPage));
 
@@ -131,7 +131,7 @@ public class BPlusOneTree {
         {
             int i =start;
             for(i=start;i <end;i++){
-                if(vals.get(i).rowId < searchValue)
+                if(vals.get(i).rId < searchValue)
                     continue;
                 else
                     break;
@@ -141,10 +141,10 @@ public class BPlusOneTree {
         else{
             
                 int mid = (end - start) / 2 + start;
-                if (vals.get(mid).rowId == searchValue)
+                if (vals.get(mid).rId == searchValue)
                     return mid;
 
-                if (vals.get(mid).rowId < searchValue)
+                if (vals.get(mid).rId < searchValue)
                     return binarySearch(vals, searchValue, mid + 1, end);
                 else
                     return binarySearch(vals, searchValue, start, mid - 1);
